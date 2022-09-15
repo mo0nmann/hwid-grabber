@@ -8,6 +8,12 @@
 #include <wrl.h>
 
 
+inline std::string pwstrToBasic(PWSTR string) {
+	std::wstring_convert<std::codecvt_utf8<wchar_t>, wchar_t> converter;
+	return converter.to_bytes(string);
+}
+
+
 // function to obtain the name of a device
 // if no name is provided, "Unknown" is returned
 inline std::string getDeviceName(_In_ IPortableDeviceManager* device_manager, _In_ PCWSTR pnp_device_id) {
@@ -33,11 +39,8 @@ inline std::string getDeviceName(_In_ IPortableDeviceManager* device_manager, _I
 			
 			hr = device_manager->GetDeviceFriendlyName(pnp_device_id, name, &name_length);
 			if (SUCCEEDED(hr)) {
-
 				// convert PWSTR to basic string and store
-				std::wstring_convert<std::codecvt_utf8<wchar_t>, wchar_t> converter;
-				device_name = converter.to_bytes(name);
-
+				device_name = pwstrToBasic(name);
 			} 
 			
 			// delete from memory
@@ -57,15 +60,19 @@ inline std::string getDeviceName(_In_ IPortableDeviceManager* device_manager, _I
 }
 
 
-inline void getDeviceHWIDs() {
+inline std::vector<std::string> getPortableDeviceHWIDs() {
+
+	std::vector<std::string> information;
 
 	// Initialize
-	CoInitialize(nullptr);
-
+	HRESULT hr = CoInitialize(nullptr);
+	if (FAILED(hr)) {
+		std::cout << "Failed to Initialize PortableDeviceManager!, hr = " << std::hex << hr << std::endl;
+	}
 
 	// create portable device manager object
 	Microsoft::WRL::ComPtr<IPortableDeviceManager> device_manager;
-	HRESULT hr = CoCreateInstance(CLSID_PortableDeviceManager,
+	hr = CoCreateInstance(CLSID_PortableDeviceManager,
 		nullptr,
 		CLSCTX_INPROC_SERVER,
 		IID_PPV_ARGS(&device_manager));
@@ -99,17 +106,34 @@ inline void getDeviceHWIDs() {
 				_Analysis_assume_(retrieved_device_id_count <= pnp_device_id_count);
 
 				for (DWORD index = 0; index < retrieved_device_id_count; index++) {
-					std::cout << getDeviceName(device_manager.Get(), pnp_device_ids[index]) << std::endl;
+
+					std::string identifier = pwstrToBasic(pnp_device_ids[index]);
+
+					std::string partition_one = identifier.substr(identifier.find("vid_") + 4);
+					std::string vid = partition_one.substr(0, partition_one.find("&"));
+
+					std::string partition_two = identifier.substr(identifier.find("pid_") + 4);
+					std::string pid = partition_two.substr(0, partition_two.find("#"));
+
+					std::string partition_three = identifier.substr(identifier.find(pid + "#") + 5);
+					std::string serial_number = partition_three.substr(0, partition_three.find("#"));
+
+					information.push_back(
+						getDeviceName(device_manager.Get(), pnp_device_ids[index])
+						+ "\n"
+						+ "identifier: " + identifier
+						+ "\n"
+						+ "VID: " + vid
+						+ "\n"
+						+ "PID: " + pid
+						+ "\n"
+						+ "Serial#: " + serial_number
+					);
 				}
 
 			}
 		}
-
-
 	}
 
-	// Uninitialize
-	CoUninitialize();
-
-
+	return information;
 }

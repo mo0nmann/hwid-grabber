@@ -5,7 +5,28 @@
 #include <PortableDeviceApi.h>
 
 #include "gpu_nvml_grabber.hpp"
-#include "device_list_grabber.hpp"
+#include "portable_device_list_grabber.hpp"
+
+void printVector(std::vector<std::string> vec) {
+	for (auto i : vec) {
+		std::cout << i << std::endl;
+	}
+}
+
+// prints horizontal line to the width of the windows terminal
+void printHorizontalLine() {
+
+	// get terminal width
+	CONSOLE_SCREEN_BUFFER_INFO csbi;
+	GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi);
+	int terminal_width = csbi.srWindow.Right - csbi.srWindow.Left + 1;
+
+	SetConsoleOutputCP(CP_UTF8);
+	for (int i = 0; i < terminal_width; i++) {
+		std::cout << u8"\u203e";
+	}
+
+}
 
 int main(void) {
 
@@ -14,22 +35,25 @@ int main(void) {
 	// get GPU info from NVML first
 	hardware_IDs = getGPUInfo();
 
-	
+	std::cout << "GPUs:" << std::endl;
+	printHorizontalLine();
 
-	// ---------------------------------------- //
-	/*
-	
-	*/
-
-	for (size_t i = 0; i < hardware_IDs.size(); i++) {
-		std::cout << hardware_IDs[i] << std::endl;
-	}
+	printVector(hardware_IDs);
 
 	std::cout << std::endl;
 
-	getDeviceHWIDs();
+	std::cout << "Portable Devices:" << std::endl;
+	printHorizontalLine();
 
-	system("pause");
+	std::vector<std::string> portable_IDs = getPortableDeviceHWIDs();
+	
+	if (portable_IDs.empty()) {
+		std::cout << "No Devices Found" << std::endl;
+	} else {
+		printVector(portable_IDs);
+	}
+
+	std::cin.get();
 	return 0;
 
 }
